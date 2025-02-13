@@ -1,7 +1,20 @@
 # Harry Potter Fanfic Model Creator
-# Version 5.0 - Verified Solution
+# Version 5.1 - Enhanced Validation
 
-# Corrected model list with exact names from your system
+# Enhanced model check function
+function Test-OllamaModel {
+    param([string]$modelName)
+    try {
+        $models = ollama list | ForEach-Object { $_.Split()[0].Trim() }
+        return $models -contains $modelName
+    }
+    catch {
+        Write-Host "[ERROR] Ollama command failed: $_" -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Corrected model list
 $models = @(
     [PSCustomObject]@{
         Name = "qwen2.5:0.5b-base-q2_k"
@@ -16,7 +29,7 @@ $models = @(
         RAM  = 1.8
     },
     [PSCustomObject]@{
-        Name = "LLaMA-2-7B-Q5_K_M"
+        Name = "llama2:7b-chat-q5_K_M"
         RAM  = 5.5
     }
 )
@@ -36,7 +49,7 @@ try {
     Write-Host "[SYSTEM] Available RAM: $($system.AvailableRAM) GB"
     Write-Host "[SYSTEM] GPU Detected: $($system.HasGPU)"
 
-    # Model selection with exact name matching
+    # Model selection
     $selectedModel = $models | 
         Where-Object { $_.RAM -le $system.AvailableRAM } |
         Sort-Object RAM -Descending |
@@ -47,29 +60,35 @@ try {
     }
     Write-Host "[SELECTED] Base Model: $($selectedModel.Name)"
 
-    # Verify model exists
-    if (-not (ollama list | Select-String $selectedModel.Name)) {
-        Write-Host "[ACTION] Pulling base model..."
+    # Enhanced model verification
+    if (-not (Test-OllamaModel -modelName $selectedModel.Name)) {
+        Write-Host "[ACTION] Pulling base model: $($selectedModel.Name)..."
         ollama pull $selectedModel.Name
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to pull model: $($selectedModel.Name)"
+        }
     }
 
-    # Create Modelfile with proper YAML formatting
+    # Create Modelfile with proper formatting
     $modelfileContent = @"
 FROM $($selectedModel.Name)
 PARAMETER num_ctx 2048
 PARAMETER temperature 1.2
 PARAMETER top_p 0.9
 
-SYSTEM_PROMPT: |
-    You are a creative AI specializing in Harry Potter fanfiction.
-    Focus on vivid descriptions and magical world-building.
-    Stay true to the original series' tone and themes.
+SYSTEM """
+You are a creative AI specializing in Harry Potter fanfiction.
+Focus on vivid descriptions and magical world-building.
+Stay true to the original series' tone and themes.
+"""
 "@
 
+    # File creation with proper encoding
     $modelfilePath = "$PWD\Modelfile"
-    Set-Content -Path $modelfilePath -Value $modelfileContent
+    $modelfileContent = $modelfileContent -replace "`r`n","`n"  # Normalize line endings
+    Set-Content -Path $modelfilePath -Value $modelfileContent -Encoding utf8
 
-    # Create model with error handling
+    # Model creation
     Write-Host "[ACTION] Creating hp-fanfic model..."
     $creation = ollama create hp-fanfic -f $modelfilePath 2>&1
     
@@ -90,7 +109,7 @@ SYSTEM_PROMPT: |
         Write-Host "[SUCCESS] Model created!"
         ollama list | Select-String "hp-fanfic"
         
-        # Start server persistently
+        # Start server
         Write-Host "[ACTION] Starting Ollama server..."
         Start-Process powershell -ArgumentList "-NoExit ollama serve"
     }
@@ -103,5 +122,4 @@ catch {
     exit 1
 }
 
-# Keep window open to see results
 Read-Host "Press Enter to exit"
