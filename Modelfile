@@ -1,7 +1,11 @@
-﻿FROM llama2:7b-chat-q5_K_M
+﻿FROM llama3:8b-instruct-q4_0
 PARAMETER num_ctx 2048
+PARAMETER num_gpu 1
+PARAMETER num_thread 4
 PARAMETER temperature 1.2
-PARAMETER top_p 0.9
+
+# Enable GPU acceleration
+# Use 4 CPU threads
 
 SYSTEM """
 You are a creative AI specializing in Harry Potter fanfiction.
