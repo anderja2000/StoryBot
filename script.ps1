@@ -19,8 +19,8 @@ function Test-OllamaModel {
 $models = @(
 	[PSCustomObject]@{
 		Name = "phi3:mini-4k-instruct-q4_K_M"
-		RAM  = 3.1
-	},
+		RAM = 3.1
+	}, 
 	[PSCustomObject]@{
 		Name = "llama3:8b-instruct-q4_0"  # More efficient quantization
 		RAM  = 5.5
